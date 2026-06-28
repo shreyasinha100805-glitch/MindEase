@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindEase - AI Mental Health Companion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🧠 MindEase</h1>
+        <p>Your AI Mental Health Companion</p>
+    </div>
+    <div class="card">
+        <h3>How are you feeling today?</h3>
+        <div class="mood-row">
+            <button class="mood-btn" onclick="selectMood(this, 'Happy')">😊 Happy</button>
+            <button class="mood-btn" onclick="selectMood(this, 'Anxious')">😟 Anxious</button>
+            <button class="mood-btn" onclick="selectMood(this, 'Sad')">😔 Sad</button>
+            <button class="mood-btn" onclick="selectMood(this, 'Stressed')">😤 Stressed</button>
+            <button class="mood-btn" onclick="selectMood(this, 'Numb')">😐 Numb</button>
+        </div>
+    </div>
+    <div class="card">
+        <h3>Tell me more...</h3>
+        <textarea id="journal" placeholder="Write how you're feeling today..."></textarea>
+    </div>
+    <button class="analyze-btn" onclick="analyzeMood()">🔍 Analyze My Mood</button>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>AI is analyzing your mood...</p>
+    </div>
+    <div class="result-card" id="result">
+        <h3>💡 AI Analysis</h3>
+        <div id="ai-response"></div>
+        <button class="emergency-btn" onclick="emergency()">🚨 Talk to a Real Person</button>
+    </div>
+    <div class="card">
+        <h3>📊 Your Mood History</h3>
+        <div id="history-list"></div>
+    </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
