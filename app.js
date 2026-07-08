@@ -163,21 +163,38 @@ function runPhase() {
     const p = PHASES[breathPhase];
     const circle = document.getElementById('breath-circle');
     const counter = document.getElementById('breath-counter');
+    const label = document.getElementById('breath-label');
+    const phaseEl = document.getElementById('breath-phase');
 
-    // Update labels
-    document.getElementById('breath-label').textContent = p.label;
-    document.getElementById('breath-phase').textContent = p.phase;
+    // Update text
+    if (label) label.textContent = p.label;
+    if (phaseEl) phaseEl.textContent = p.phase;
 
-    // Animate circle
-    circle.style.transition = `transform ${p.seconds}s ease-in-out, background ${p.seconds}s ease`;
-    circle.style.transform = p.scale;
-    circle.style.background = breathPhase === 0
-        ? 'rgba(255,255,255,0.45)'
-        : breathPhase === 1
-        ? 'rgba(255,220,100,0.4)'
-        : 'rgba(100,200,255,0.35)';
+    // Force reflow so transition fires fresh
+    circle.style.transition = 'none';
+    void circle.offsetWidth; // trigger reflow
 
-    // Countdown
+    // Set transition then animate
+    circle.style.transition = `transform ${p.seconds}s ease-in-out, background ${p.seconds}s ease-in-out, box-shadow ${p.seconds}s ease-in-out`;
+
+    if (breathPhase === 0) {
+        // Inhale - grow + white glow
+        circle.style.transform = 'scale(1.45)';
+        circle.style.background = 'rgba(255,255,255,0.5)';
+        circle.style.boxShadow = '0 0 60px rgba(255,255,255,0.5)';
+    } else if (breathPhase === 1) {
+        // Hold - stay big + yellow glow
+        circle.style.transform = 'scale(1.45)';
+        circle.style.background = 'rgba(255,220,80,0.45)';
+        circle.style.boxShadow = '0 0 60px rgba(255,220,80,0.4)';
+    } else {
+        // Exhale - shrink + blue glow
+        circle.style.transform = 'scale(0.9)';
+        circle.style.background = 'rgba(100,200,255,0.3)';
+        circle.style.boxShadow = '0 0 40px rgba(100,200,255,0.3)';
+    }
+
+    // Countdown timer
     let remaining = p.seconds;
     if (counter) counter.textContent = remaining + 's';
     clearInterval(breathInterval);
@@ -187,7 +204,7 @@ function runPhase() {
         if (remaining <= 0) clearInterval(breathInterval);
     }, 1000);
 
-    // Next phase
+    // Move to next phase after duration
     breathTimer = setTimeout(() => {
         if (!breathingActive) return;
         breathPhase = (breathPhase + 1) % 3;
