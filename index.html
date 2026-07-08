@@ -370,7 +370,10 @@ body.dark .glass-card{background:rgba(255,255,255,0.06);border-color:rgba(255,25
     <div class="breathing-title">🫁 Breathing Exercise</div>
     <div class="breathing-circle-container">
       <div class="breathing-circle" id="breath-circle" onclick="toggleBreathing()">
-        <span id="breath-text">Tap to Start</span>
+        <div style="text-align:center;">
+          <span id="breath-label" style="font-size:13px;display:block;">Tap to Start</span>
+          <span id="breath-counter" style="font-size:26px;font-weight:700;display:block;min-height:32px;"></span>
+        </div>
       </div>
       <div class="breathing-phase" id="breath-phase">4-7-8 Breathing</div>
       <div class="breathing-text">Inhale 4s → Hold 7s → Exhale 8s</div>
