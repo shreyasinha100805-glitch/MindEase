@@ -1,6 +1,8 @@
 const API_KEY = "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";
-
 let selectedMood = "";
+let breathingActive = false;
+let breathPhase = 0;
+let breathTimer = null;
 
 const FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
@@ -11,35 +13,39 @@ const FREE_MODELS = [
     "openrouter/auto"
 ];
 
-const MOOD_COLORS = {
-    Happy: "#22c55e", Anxious: "#f59e0b",
-    Sad: "#3b82f6", Stressed: "#ef4444", Numb: "#8b5cf6"
+const MOOD_COLORS = { Happy:"#22c55e", Anxious:"#f59e0b", Sad:"#3b82f6", Stressed:"#ef4444", Numb:"#8b5cf6" };
+const MOOD_HEIGHTS = { Happy:90, Anxious:55, Sad:45, Stressed:70, Numb:35 };
+
+const MODAL_CONTENT = {
+    meditate: {
+        title: "🧘 5-Minute Meditation",
+        body: "Find a comfortable position. Close your eyes.\n\n1. Take 3 deep breaths slowly.\n2. Focus only on your breathing — in through nose, out through mouth.\n3. When thoughts come, gently return to your breath.\n4. Repeat for 5 minutes.\n\nTip: Set a gentle timer so you don't worry about time. Even 2 minutes helps! 💙"
+    },
+    journal: {
+        title: "📔 Journaling Tips",
+        body: "Writing helps process emotions. Try these prompts:\n\n• 'Right now I feel... because...'\n• 'Today was hard because...'\n• 'One thing I'm grateful for is...'\n• 'Tomorrow I want to feel...'\n\nThere's no right or wrong way to journal. Write honestly, for your eyes only. 💙"
+    },
+    talk: {
+        title: "💬 Talk It Out",
+        body: "Sometimes we just need to vent. You can:\n\n• Select your mood above and write in the journal box — our AI will respond warmly.\n• Call a friend or family member you trust.\n• Talk to a school counselor.\n• Call iCall: 9152987821 (free helpline).\n\nYou deserve support. You're not alone. 💙"
+    }
 };
 
+// ── MOOD SELECTION ──────────────────────────────────────
 function selectMood(btn, mood) {
     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     selectedMood = mood;
-    document.getElementById('mood-badge').textContent = mood;
-    document.getElementById('mood-badge').style.background = MOOD_COLORS[mood] + "20";
-    document.getElementById('mood-badge').style.color = MOOD_COLORS[mood];
+    document.getElementById('mood-badge').textContent = mood + ' mood';
 }
 
-function updateCharCount(textarea) {
-    const count = textarea.value.length;
-    document.getElementById('char-count').textContent = count;
-    if (count > 280) textarea.value = textarea.value.substring(0, 300);
+function updateCharCount(el) {
+    document.getElementById('char-count').textContent = el.value.length;
 }
 
-function toggleDark() {
-    document.body.classList.toggle('dark');
-    const btn = document.querySelector('.dark-toggle');
-    btn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-    localStorage.setItem('darkMode', document.body.classList.contains('dark'));
-}
-
+// ── AI ANALYSIS ─────────────────────────────────────────
 async function callAI(model, mood, journal) {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -48,92 +54,124 @@ async function callAI(model, mood, journal) {
             "X-Title": "MindEase"
         },
         body: JSON.stringify({
-            model: model,
-            messages: [{
-                role: "user",
-                content: `You are a compassionate teen mental health assistant named MindEase.
-A student is feeling: ${mood}
+            model,
+            messages: [{ role: "user", content:
+`You are MindEase, a compassionate teen mental health AI.
+Student mood: ${mood}
 They wrote: "${journal}"
 
-Respond warmly with:
-1. A genuine acknowledgment of their feeling (1-2 sentences)
-2. **Three practical tips** to feel better right now (format as **Tip:** description)
-3. One short motivational closing line
+Respond with:
+1. Warm acknowledgment (1-2 sentences, use their mood word)
+2. **Tip 1:** practical action
+3. **Tip 2:** practical action  
+4. **Tip 3:** practical action
+5. Short motivational closing with an emoji
 
-Keep it friendly, warm, and teen-appropriate. Use some emojis naturally.`
+Be warm, friendly, teen-appropriate. Use 2-3 emojis naturally.`
             }]
         })
     });
-    const data = await response.json();
+    const data = await res.json();
     if (data.error) throw new Error(data.error.message);
     return data.choices[0].message.content;
 }
 
 async function analyzeMood() {
     if (!selectedMood) {
-        // Shake the mood card to prompt selection
-        const card = document.querySelector('.mood-grid');
-        card.style.animation = 'none';
-        card.offsetHeight;
-        card.style.animation = 'shake 0.4s ease';
-        setTimeout(() => card.style.animation = '', 500);
+        document.querySelector('.mood-grid').classList.add('shake');
+        setTimeout(() => document.querySelector('.mood-grid').classList.remove('shake'), 500);
         alert("👆 Please select how you're feeling first!");
         return;
     }
-
-    const journal = document.getElementById('journal').value || "I just selected my mood";
+    const journal = document.getElementById('journal').value || "I just wanted to check in.";
     const btn = document.getElementById('analyze-btn');
 
-    btn.disabled = true;
-    btn.textContent = '⏳ Analyzing...';
+    btn.disabled = true; btn.textContent = '⏳ Analyzing...';
     document.getElementById('loading').style.display = 'block';
     document.getElementById('result').style.display = 'none';
 
     let aiText = null;
-
     for (let i = 0; i < FREE_MODELS.length; i++) {
         try {
-            document.getElementById('loading-model').textContent =
-                `Trying AI model ${i + 1} of ${FREE_MODELS.length}...`;
+            document.getElementById('loading-model').textContent = `Trying model ${i+1} of ${FREE_MODELS.length}...`;
             aiText = await callAI(FREE_MODELS[i], selectedMood, journal);
             break;
-        } catch (e) {
-            console.log(`Model ${i+1} failed:`, e.message);
-        }
+        } catch(e) { console.log(`Model ${i+1} failed`, e.message); }
     }
 
-    btn.disabled = false;
-    btn.textContent = '🔍 Analyze My Mood';
+    btn.disabled = false; btn.textContent = '🔍 Analyze My Mood';
     document.getElementById('loading').style.display = 'none';
     document.getElementById('result').style.display = 'block';
 
     if (aiText) {
-        const formatted = aiText
-            .replace(/\n/g, '<br>')
-            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-            .replace(/\*(.*?)\*/g, '<i>$1</i>');
-        document.getElementById('ai-response').innerHTML = formatted;
-        document.getElementById('mood-badge').textContent = selectedMood + ' mood';
+        document.getElementById('ai-response').innerHTML = aiText
+            .replace(/\n/g,'<br>')
+            .replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')
+            .replace(/\*(.*?)\*/g,'<i>$1</i>');
         saveMood(selectedMood, journal, aiText);
         loadHistory();
-        document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        document.getElementById('result').scrollIntoView({ behavior:'smooth', block:'nearest' });
     } else {
-        document.getElementById('ai-response').innerHTML = `
-            <div style="color:#ef4444; padding:12px; background:#fef2f2; border-radius:10px;">
-                ❌ All AI models are busy. Please wait a minute and try again!
-            </div>`;
+        document.getElementById('ai-response').innerHTML = `<div style="color:#ef4444;padding:12px;background:#fef2f2;border-radius:10px;">❌ All AI models are busy. Please wait a minute and try again!</div>`;
     }
 }
 
+// ── BREATHING EXERCISE ───────────────────────────────────
+const BREATH_PHASES = [
+    { text: "Inhale... 🌬️", duration: 4000, scale: 1.4 },
+    { text: "Hold... 🤫", duration: 7000, scale: 1.4 },
+    { text: "Exhale... 😮‍💨", duration: 8000, scale: 1.0 },
+];
+
+function toggleBreathing() {
+    breathingActive = !breathingActive;
+    const circle = document.getElementById('breath-circle');
+    const btn = document.getElementById('breath-btn');
+    if (breathingActive) {
+        btn.textContent = '⏹ Stop';
+        circle.classList.add('active');
+        runBreathPhase();
+    } else {
+        btn.textContent = '▶ Start';
+        circle.classList.remove('active');
+        circle.style.transition = 'transform 0.5s';
+        clearTimeout(breathTimer);
+        document.getElementById('breath-text').textContent = 'Tap to Start';
+        document.getElementById('breath-phase').textContent = '4-7-8 Breathing';
+        breathPhase = 0;
+    }
+}
+
+function runBreathPhase() {
+    if (!breathingActive) return;
+    const phase = BREATH_PHASES[breathPhase];
+    document.getElementById('breath-text').textContent = phase.text;
+    document.getElementById('breath-phase').textContent = ['Inhale 4s','Hold 7s','Exhale 8s'][breathPhase];
+    const circle = document.getElementById('breath-circle');
+    circle.style.transition = `transform ${phase.duration/1000}s ease-in-out`;
+    circle.style.transform = `scale(${phase.scale})`;
+    breathTimer = setTimeout(() => {
+        breathPhase = (breathPhase + 1) % 3;
+        runBreathPhase();
+    }, phase.duration);
+}
+
+// ── QUICK ACTIONS ────────────────────────────────────────
+function showModal(type) {
+    const content = MODAL_CONTENT[type];
+    document.getElementById('modal-title').textContent = content.title;
+    document.getElementById('modal-body').innerHTML = content.body.replace(/\n/g,'<br>');
+    document.getElementById('modal').classList.add('active');
+}
+
+function closeModal(e) {
+    if (e.target.id === 'modal') document.getElementById('modal').classList.remove('active');
+}
+
+// ── MOOD HISTORY & CHART ─────────────────────────────────
 function saveMood(mood, journal, response) {
     let db = JSON.parse(localStorage.getItem('mindease_db') || '{"moods":[]}');
-    db.moods.push({
-        mood, journal, response,
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now()
-    });
-    // Keep only last 20 entries
+    db.moods.push({ mood, journal, response, date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString(), ts: Date.now() });
     if (db.moods.length > 20) db.moods = db.moods.slice(-20);
     localStorage.setItem('mindease_db', JSON.stringify(db));
 }
@@ -141,18 +179,30 @@ function saveMood(mood, journal, response) {
 function loadHistory() {
     let db = JSON.parse(localStorage.getItem('mindease_db') || '{"moods":[]}');
     const list = document.getElementById('history-list');
+    const EMOJI = { Happy:'😊', Anxious:'😟', Sad:'😔', Stressed:'😤', Numb:'😐' };
 
-    if (db.moods.length === 0) {
-        list.innerHTML = '<div class="history-empty">No mood entries yet — start by analyzing your mood! 💙</div>';
-        return;
+    // Mood chart
+    const recent = db.moods.slice(-7);
+    const bars = document.getElementById('chart-bars');
+    const labels = document.getElementById('chart-labels');
+    if (recent.length > 0) {
+        bars.innerHTML = recent.map(m => `
+            <div class="chart-bar" style="height:${MOOD_HEIGHTS[m.mood]||40}%;background:${MOOD_COLORS[m.mood]||'rgba(255,255,255,0.4)'}80;" title="${m.mood}"></div>
+        `).join('');
+        labels.innerHTML = recent.map(m => `<div class="chart-label">${EMOJI[m.mood]||'💭'}</div>`).join('');
+    } else {
+        bars.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:12px;padding:8px;">No data yet</div>';
+        labels.innerHTML = '';
     }
 
-    const moodEmojis = { Happy: '😊', Anxious: '😟', Sad: '😔', Stressed: '😤', Numb: '😐', General: '💭' };
-
-    list.innerHTML = db.moods.slice(-7).reverse().map(item => `
+    if (db.moods.length === 0) {
+        list.innerHTML = '<div class="history-empty">No entries yet — analyze your mood to start! 💙</div>';
+        return;
+    }
+    list.innerHTML = db.moods.slice(-6).reverse().map(m => `
         <div class="history-item">
-            <span class="history-mood">${moodEmojis[item.mood] || '💭'} ${item.mood}</span>
-            <span class="history-date">${item.date} · ${item.time}</span>
+            <span class="history-mood">${EMOJI[m.mood]||'💭'} ${m.mood}</span>
+            <span class="history-date">${m.date} · ${m.time}</span>
         </div>
     `).join('');
 }
@@ -164,11 +214,19 @@ function clearHistory() {
     }
 }
 
-function emergency() {
-    alert("You're not alone 💙\n\nReach out to:\n\n📞 iCall (India): 9152987821\n📞 Vandrevala Foundation: 1860-2662-345\n📞 AASRA: 9820466627\n\nYou matter. Help is available 24/7.");
+// ── DARK MODE ────────────────────────────────────────────
+function toggleDark() {
+    document.body.classList.toggle('dark');
+    document.querySelector('.dark-toggle').textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+    localStorage.setItem('darkMode', document.body.classList.contains('dark'));
 }
 
-// Init
+// ── EMERGENCY ────────────────────────────────────────────
+function emergency() {
+    alert("You're not alone 💙\n\nReach out anytime:\n\n📞 iCall (India): 9152987821\n📞 Vandrevala Foundation: 1860-2662-345\n📞 AASRA: 9820466627\n\nHelp is available 24/7. You matter! 💙");
+}
+
+// ── INIT ─────────────────────────────────────────────────
 window.onload = () => {
     loadHistory();
     if (localStorage.getItem('darkMode') === 'true') {
@@ -177,11 +235,10 @@ window.onload = () => {
     }
 };
 
-// Add shake animation
-const style = document.createElement('style');
-style.textContent = `@keyframes shake {
-    0%,100%{transform:translateX(0)}
-    25%{transform:translateX(-8px)}
-    75%{transform:translateX(8px)}
-}`;
-document.head.appendChild(style);
+// Shake animation
+const s = document.createElement('style');
+s.textContent = `
+.shake{animation:shake 0.4s ease!important;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+`;
+document.head.appendChild(s);
